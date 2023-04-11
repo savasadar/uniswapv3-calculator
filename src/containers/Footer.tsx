@@ -33,15 +33,7 @@ const Footer = () => {
   return (
     <FooterContainer>
       <div>
-        Supported by{" "}
-        <a
-          target="_blank"
-          rel="noreferrer"
-          href="https://mirror.xyz/devi731.eth/Dy705L0V2MufftJ-x4zgAhfILw2yE18RY0lNsVN3mEA"
-        >
-          Uniswap Foundation
-        </a>
-        . Crafted with <FontAwesomeIcon icon={faHeart} /> by{" "}
+        Crafted with <FontAwesomeIcon icon={faHeart} /> by{" "}
         <a
           rel="noreferrer"
           href="https://twitter.com/chunrapeepat"
@@ -50,17 +42,35 @@ const Footer = () => {
           @chunrapeepat
         </a>
         , Happy Uniswapping 🦄!!
+        <br />
+        Sponsored by{" "}
+        <a
+          target="_blank"
+          rel="noreferrer"
+          href="https://twitter.com/UniswapFND"
+        >
+          Uniswap Foundation
+        </a>
+        . Powered by{" "}
+        <a
+          target="_blank"
+          rel="noreferrer"
+          href="https://www.coingecko.com/en/api"
+        >
+          Coingecko API
+        </a>
+        .
       </div>
       <div>
         <a
-          href="https://github.com/chunza2542/uniswap.fish"
+          href="https://github.com/chunrapeepat/uniswap.fish"
           rel="noreferrer"
           target="_blank"
         >
           How it works?
         </a>
         <a
-          href="https://github.com/chunza2542/uniswap.fish"
+          href="https://github.com/chunrapeepat/uniswap.fish"
           rel="noreferrer"
           target="_blank"
         >

@@ -16,6 +16,8 @@ enum SupportedChainId {
 
   CELO = 42220,
   CELO_ALFAJORES = 44787,
+
+  BNB = 56,
 }
 
 // NOTE: also update CreatePositionModal, isNative function.
@@ -29,6 +31,8 @@ export const NETWORKS: Network[] = [
       "https://seeklogo.com/images/E/ethereum-logo-EC6CDBA45B-seeklogo.com.png",
     subgraphEndpoint:
       "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3",
+    totalValueLockedUSD_gte: 1000000,
+    volumeUSD_gte: 500000,
   },
   {
     id: "polygon",
@@ -39,6 +43,8 @@ export const NETWORKS: Network[] = [
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQgwyOAYn_Z1BalQYMfN8zVqwenavJVSO9SUZ1rz0ZerShW-5Ubzf6U96kLODC-ta2bVks&usqp=CAU",
     subgraphEndpoint:
       "https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-polygon",
+    totalValueLockedUSD_gte: 100000,
+    volumeUSD_gte: 50000,
   },
   {
     id: "optimism",
@@ -48,6 +54,8 @@ export const NETWORKS: Network[] = [
     logoURI: "https://optimistic.etherscan.io/images/brandassets/optimism.svg",
     subgraphEndpoint:
       "https://api.thegraph.com/subgraphs/name/ianlapham/optimism-post-regenesis",
+    totalValueLockedUSD_gte: 1000000,
+    volumeUSD_gte: 500000,
   },
   {
     id: "celo",
@@ -55,23 +63,43 @@ export const NETWORKS: Network[] = [
     name: "Celo",
     desc: "Celo Mainnet",
     disabled: false,
-    logoURI: "celo.svg",
+    logoURI: "/celo.svg",
     isNew: false,
     subgraphEndpoint:
       "https://api.thegraph.com/subgraphs/name/jesse-sawa/uniswap-celo",
+    totalValueLockedUSD_gte: 10000,
+    volumeUSD_gte: 1000,
   },
   {
     id: "arbitrum",
     chainId: SupportedChainId.ARBITRUM_ONE,
     name: "Arbitrum",
     desc: "Arbitrum Mainnet (L2)",
-    disabled: true,
+    disabled: false,
     isNew: false,
-    error: "INDEXING ERROR",
+    // error: "INDEXING ERROR",
+    disabledTopPositions: true,
     logoURI:
       "https://assets.website-files.com/5f973c970bea5548ad4287ef/60a320b472858ace6700df76_arb-icon.svg",
+    // subgraphEndpoint:
+    //   "https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-arbitrum-one",
     subgraphEndpoint:
-      "https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-arbitrum-one",
+      "https://api.thegraph.com/subgraphs/name/ianlapham/arbitrum-minimal",
+    totalValueLockedUSD_gte: 0,
+    volumeUSD_gte: 0,
+  },
+  {
+    id: "bnb",
+    chainId: SupportedChainId.BNB,
+    name: "BNB Chain",
+    desc: "Binance Smart Chain (BSC) Mainnet",
+    disabled: false,
+    isNew: true,
+    logoURI: "https://info.uniswap.org/static/media/bnb-logo.797868eb.svg",
+    subgraphEndpoint:
+      "https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-bsc",
+    totalValueLockedUSD_gte: 100000,
+    volumeUSD_gte: 50000,
   },
 ];
 

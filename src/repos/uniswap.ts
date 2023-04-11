@@ -1,6 +1,10 @@
 import axios from "axios";
 import { getCurrentNetwork } from "../common/network";
-import { getTokenLogoURL, sortTokens } from "../utils/uniswapv3/helper";
+import {
+  getTokenLogoURL,
+  getUniqueItems,
+  sortTokens,
+} from "../utils/uniswapv3/helper";
 import lscache from "../utils/lscache";
 import {
   Pool,
@@ -67,6 +71,7 @@ export const getPoolTicks = async (poolAddress: string): Promise<Tick[]> => {
 const _processTokenInfo = (token: Token) => {
   token.logoURI = getTokenLogoURL(getCurrentNetwork().id, token.id);
 
+  // TODO: check the network id before replace the token name
   if (token.name === "Wrapped Ether" || token.name === "Wrapped Ethereum") {
     token.name = "Ethereum";
     token.symbol = "ETH";
@@ -76,6 +81,10 @@ const _processTokenInfo = (token: Token) => {
   if (token.name === "Wrapped Matic") {
     token.name = "Polygon Native Token";
     token.symbol = "MATIC";
+  }
+  if (token.name === "Wrapped BNB") {
+    token.name = "BSC Native Token";
+    token.symbol = "BNB";
   }
 
   return token;
@@ -144,6 +153,11 @@ export const getPoolFromPair = async (
 ): Promise<Pool[]> => {
   const sortedTokens = sortTokens(token0, token1);
 
+  let feeGrowthGlobal = `feeGrowthGlobal0X128\nfeeGrowthGlobal1X128`;
+  if (getCurrentNetwork().disabledTopPositions) {
+    feeGrowthGlobal = "";
+  }
+
   const { pools } = await _queryUniswap(`{
     pools(orderBy: feeTier, where: {
         token0: "${sortedTokens[0].id}",
@@ -155,8 +169,7 @@ export const getPoolFromPair = async (
       liquidity
       token0Price
       token1Price
-      feeGrowthGlobal0X128
-      feeGrowthGlobal1X128
+      ${feeGrowthGlobal}
     }
   }`);
 
@@ -230,6 +243,7 @@ const _getPoolPositionsByPage = async (
     return [];
   }
 };
+
 export const getPoolPositions = async (
   poolAddress: string
 ): Promise<Position[]> => {
@@ -250,4 +264,126 @@ export const getPoolPositions = async (
     page += PAGE_SIZE;
   }
   return result;
+};
+
+const getBulkTokens = async (tokenAddresses: string[]): Promise<Token[]> => {
+  const res = await _queryUniswap(`{
+    tokens(where: {id_in: [${tokenAddresses
+      .map((id) => `"${id}"`)
+      .join(",")}]}) {
+      id
+      name
+      symbol
+      volumeUSD
+      decimals
+      totalValueLockedUSD
+      tokenDayData(first: 1, orderBy: date, orderDirection: desc) {
+        priceUSD
+      }
+    }
+  }`);
+
+  if (res.tokens !== null) {
+    res.tokens = res.tokens.map(_processTokenInfo);
+  }
+
+  return res.tokens;
+};
+
+export const getPools = async (
+  totalValueLockedUSD_gte: number,
+  volumeUSD_gte: number
+): Promise<{
+  pools: Pool[];
+  tokens: Token[];
+}> => {
+  try {
+    const res = await _queryUniswap(`{
+      pools (first: 300, orderBy: totalValueLockedUSD, orderDirection: desc, where: {liquidity_gt: 0, totalValueLockedUSD_gte: ${totalValueLockedUSD_gte}, volumeUSD_gte: ${volumeUSD_gte}}) {
+        id
+        token0 {
+          id
+        }
+        token1 {
+          id
+        }
+        feeTier
+        liquidity
+        tick
+        totalValueLockedUSD
+        poolDayData(first: 15, skip: 1, orderBy: date, orderDirection: desc) {
+          date
+          volumeUSD
+          open 
+          high
+          low
+          close
+        }
+      }
+    }`);
+
+    if (res === undefined || res.pools.length === 0) {
+      return { pools: [], tokens: [] };
+    }
+
+    const tokenIds = getUniqueItems(
+      res.pools.reduce(
+        (acc: string[], p: Pool) => [...acc, p.token0.id, p.token1.id],
+        []
+      )
+    );
+    const queryPage = Math.ceil(tokenIds.length / 100);
+    // batch query getBulkTokens function by page using Promise.all
+    const tokens = await Promise.all(
+      Array.from({ length: queryPage }, (_, i) => {
+        const start = i * 100;
+        const end = start + 100;
+        return getBulkTokens(tokenIds.slice(start, end));
+      })
+    ).then((res) => res.flat());
+    // sort token by volume
+    tokens.sort((a, b) => Number(b.volumeUSD) - Number(a.volumeUSD));
+    // map poolCount
+    const poolCountByTokenHash = res.pools.reduce((acc: any, p: Pool) => {
+      acc[p.token0.id] = (acc[p.token0.id] || 0) + 1;
+      acc[p.token1.id] = (acc[p.token1.id] || 0) + 1;
+      return acc;
+    }, {});
+    const _tokens = tokens.map((t: Token) => {
+      return {
+        ...t,
+        poolCount: poolCountByTokenHash[t.id],
+      };
+    });
+    // create hash of tokens id
+    const tokenHash = _tokens.reduce((acc: any, t: Token) => {
+      acc[t.id] = t;
+      return acc;
+    }, {});
+    // map token0 and token1 to pool
+    const pools = res.pools
+      .map((p: Pool) => {
+        return {
+          ...p,
+          token0: tokenHash[p.token0.id],
+          token1: tokenHash[p.token1.id],
+        };
+      })
+      // fix poolDayData incorrect data
+      .map((p: Pool) => {
+        const poolDayData = [];
+        for (let i = 0; i < p.poolDayData.length - 1; ++i) {
+          p.poolDayData[i].open = p.poolDayData[i + 1].close;
+          poolDayData.push(p.poolDayData[i]);
+        }
+        p.poolDayData = poolDayData;
+        return p;
+      })
+      // filter out if poolDayData < 14
+      .filter((p: Pool) => p.poolDayData.length === 14);
+
+    return { pools, tokens };
+  } catch (e) {
+    return { pools: [], tokens: [] };
+  }
 };

@@ -24,7 +24,11 @@ import { useAppContext } from "../../context/app/appContext";
 import { AppActionType } from "../../context/app/appReducer";
 import { getPriceChart } from "../../repos/coingecko";
 import { ModalActionType } from "../../context/modal/modalReducer";
-import { NETWORKS, setCurrentNetwork } from "../../common/network";
+import {
+  getCurrentNetwork,
+  NETWORKS,
+  setCurrentNetwork,
+} from "../../common/network";
 import { sortTokens } from "../../utils/uniswapv3/helper";
 import {
   Network,
@@ -36,6 +40,7 @@ import {
   getQueryParam,
   setQueryParam,
 } from "../../utils/querystring";
+import { getTickFromPrice } from "../../utils/uniswapv3/math";
 
 const ModalStyle = {
   overlay: {
@@ -56,7 +61,7 @@ const ModalStyle = {
   },
 };
 const Container = styled.div`
-  max-width: 370px;
+  max-width: 350px;
   padding: 15px;
 
   @media only screen and (max-width: 400px) {
@@ -113,7 +118,7 @@ const Tier = styled.div`
   }
 
   & > span {
-    font-size: 0.8rem;
+    font-size: 0.675rem;
     line-height: 1.2rem;
     margin-top: 5px;
     display: inline-block;
@@ -125,7 +130,7 @@ const Tier = styled.div`
     border-radius: 5px;
     padding: 3px 5px;
     color: #ccc;
-    font-size: 0.8rem;
+    font-size: 0.675rem;
     margin-top: 7px;
     text-align: center;
   }
@@ -146,6 +151,8 @@ const GoBack = styled.h1`
   align-items: center;
   background: rgb(50, 50, 50);
   font-size: 1rem;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
 
   @media only screen and (max-width: 400px) {
     padding: 15px 10px;
@@ -163,7 +170,7 @@ const NetworkItem = styled.div`
   display: flex;
   align-items: center;
   transition: 0.3s;
-  width: calc(370px - 10px * 2);
+  width: calc(350px - 10px * 2);
   margin: 10px;
   border: 1px solid #333;
   border-radius: 15px;
@@ -221,6 +228,9 @@ const Logo = styled.h1`
   padding: 15px;
   align-items: center;
   background: rgb(40, 40, 40);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+
   & > span {
     font-size: 1.4rem;
     margin-right: 7px;
@@ -255,7 +265,10 @@ const FEE_TIER_STYLES = {
   },
 };
 
-const SelectPairModal = () => {
+interface SelectPairProps {
+  fetchFromUrlParams?: boolean;
+}
+export const SelectPair = ({ fetchFromUrlParams }: SelectPairProps) => {
   const appContext = useAppContext();
   const modalContext = useModalContext();
 
@@ -280,6 +293,8 @@ const SelectPairModal = () => {
   // load user's selection based on url query string
   // TODO: Refactor logic
   useEffect(() => {
+    if (!fetchFromUrlParams) return;
+
     if (
       selectedNetwork ||
       selectedTokens[0] ||
@@ -323,6 +338,8 @@ const SelectPairModal = () => {
   }, []);
 
   useEffect(() => {
+    if (!fetchFromUrlParams) return;
+
     if (autoSubmit && !isSubmitLoading) {
       setAutoSubmit(false);
       handleSubmit();
@@ -377,12 +394,42 @@ const SelectPairModal = () => {
         getAvgTradingVolume(pool.id),
       ]);
 
+    let _poolTicks = poolTicks;
+    if (poolTicks.length === 0) {
+      const price0 = Number.MAX_SAFE_INTEGER;
+      const price1 = 1 / Number.MAX_SAFE_INTEGER;
+      const minTick = getTickFromPrice(
+        price0,
+        token0.decimals,
+        token1.decimals
+      );
+      const maxTick = getTickFromPrice(
+        price1,
+        token0.decimals,
+        token1.decimals
+      );
+      _poolTicks = [
+        {
+          tickIdx: String(minTick),
+          price0: String(price0),
+          price1: String(price1),
+          liquidityNet: pool.liquidity,
+        },
+        {
+          tickIdx: String(maxTick),
+          price0: String(price1),
+          price1: String(price0),
+          liquidityNet: "-" + pool.liquidity,
+        },
+      ];
+    }
+
     appContext.dispatch({
       type: AppActionType.RESET_PAIR,
       payload: {
         network: selectedNetwork,
         pool,
-        poolTicks,
+        poolTicks: _poolTicks,
         token0,
         token1,
         token0PriceChart,
@@ -396,6 +443,16 @@ const SelectPairModal = () => {
       type: ModalActionType.SET_SELECT_PAIR_MODAL_STATE,
       payload: false,
     });
+
+    const props = {
+      featureId: "Uniswap Calculator",
+      chainId: getCurrentNetwork().id,
+    };
+    if (typeof window.plausible !== "undefined") {
+      window.plausible("FeatureUsage", {
+        props,
+      });
+    }
   };
 
   const fetchPools = async () => {
@@ -479,287 +536,295 @@ const SelectPairModal = () => {
 
   return (
     <>
-      <Modal
-        style={ModalStyle}
-        isOpen={modalContext.state.isSelectPairModalOpen}
-        contentLabel="Example Modal"
-        ariaHideApp={false}
-      >
-        {showSelectNetworkPage && (
-          <>
-            <GoBack>
-              <div
-                onClick={() => {
-                  setShowSelectNetworkPage(false);
-                }}
-              >
-                <FontAwesomeIcon icon={faArrowLeft} />
-              </div>
-              <span>Select Network</span>
-            </GoBack>
-            {NETWORKS.map((network, i) => {
-              return (
-                <NetworkItem
-                  style={
-                    network.disabled
-                      ? {
-                          cursor: "not-allowed",
-                          background: "rgba(255, 255, 255, 0.1)",
-                          opacity: "0.4",
-                        }
-                      : {}
-                  }
-                  onClick={() => {
-                    if (!network.disabled) {
-                      setCurrentNetwork(network);
-                      fetchTokens();
-
-                      setSelectedNetwork(network);
-                      setSelectedTokens([null, null]);
-                      setShowSelectNetworkPage(false);
-                      setPools([]);
-
-                      setQueryParam("network", network.id);
-                      deleteQueryParam("token0");
-                      deleteQueryParam("token1");
-                      deleteQueryParam("feeTier");
-                    }
-                  }}
-                  id={`${network.name}_${i}`}
-                >
-                  <img src={network.logoURI} alt={network.name} />
-                  <div>
-                    <h5>
-                      {network.name} {network.isNew && <span>NEW</span>}{" "}
-                      {network.error && <span>{network.error}</span>}
-                    </h5>
-                    <span>{network.desc}</span>
-                  </div>
-                </NetworkItem>
-              );
-            })}
-          </>
-        )}
-        {showSelectTokenPage && (
-          <>
-            <GoBack>
-              <div
-                onClick={() => {
-                  setShowSelectTokenPage(false);
-                  setSelectedTokenIndex(null);
-                }}
-              >
-                <FontAwesomeIcon icon={faArrowLeft} />
-              </div>
-              <span>Select Token</span>
-            </GoBack>
-            <SearchTokenPage
-              refetchTokens={() => {
-                fetchTokens();
+      {showSelectNetworkPage && (
+        <>
+          <GoBack>
+            <div
+              onClick={() => {
+                setShowSelectNetworkPage(false);
               }}
-              selectToken={selectToken}
-              tokens={appContext.state.tokenList}
-            />
-          </>
-        )}
-        {!showSelectTokenPage && !showSelectNetworkPage && (
-          <>
-            <Logo>
-              <span>🦄</span> UniswapCalculator
-              {appContext.state.token0 && !isSubmitLoading && (
-                <div
-                  onClick={() =>
-                    modalContext.dispatch({
-                      type: ModalActionType.SET_SELECT_PAIR_MODAL_STATE,
-                      payload: false,
-                    })
-                  }
-                >
-                  <FontAwesomeIcon icon={faTimes} />
-                </div>
-              )}
-            </Logo>
-            <Container>
-              <Heading>Select Network</Heading>
-              <SelectNetworkContainer>
-                <TokenSelect
-                  onClick={() => {
-                    if (!isSubmitLoading) {
-                      setShowSelectNetworkPage(true);
-                    }
-                  }}
-                >
-                  {!selectedNetwork && <span>Select a network</span>}
-                  {selectedNetwork !== null && (
-                    <span>
-                      <img
-                        src={selectedNetwork.logoURI}
-                        alt={selectedNetwork.name}
-                      />
-                      {selectedNetwork.name}
-                    </span>
-                  )}
-                  <span>
-                    <FontAwesomeIcon icon={faChevronDown}></FontAwesomeIcon>
-                  </span>
-                </TokenSelect>
-              </SelectNetworkContainer>
-
-              <Heading>Select Pair</Heading>
-              <SelectPairContainer>
-                <TokenSelect
-                  onClick={() => {
-                    if (!isSubmitLoading) {
-                      setSelectedPool(null);
-                      deleteQueryParam("feeTier");
-                      setShowSelectTokenPage(true);
-                      setSelectedTokenIndex(0);
-                    }
-                  }}
-                >
-                  {!selectedTokens[0] && <span>Select a token</span>}
-                  {selectedTokens[0] && (
-                    <span>
-                      <img
-                        src={selectedTokens[0].logoURI}
-                        alt={selectedTokens[0].name}
-                      />
-                      {selectedTokens[0].symbol}
-                    </span>
-                  )}
-                  <span>
-                    <FontAwesomeIcon icon={faChevronDown}></FontAwesomeIcon>
-                  </span>
-                </TokenSelect>
-                <TokenSelect
-                  onClick={() => {
-                    if (!isSubmitLoading) {
-                      setSelectedPool(null);
-                      deleteQueryParam("feeTier");
-                      setShowSelectTokenPage(true);
-                      setSelectedTokenIndex(1);
-                    }
-                  }}
-                >
-                  {!selectedTokens[1] && <span>Select a token</span>}
-                  {selectedTokens[1] && (
-                    <span>
-                      <img
-                        src={selectedTokens[1].logoURI}
-                        alt={selectedTokens[1].name}
-                      />
-                      {selectedTokens[1].symbol}
-                    </span>
-                  )}
-                  <span>
-                    <FontAwesomeIcon icon={faChevronDown}></FontAwesomeIcon>
-                  </span>
-                </TokenSelect>
-              </SelectPairContainer>
-
-              <Heading>Select Fee Tier</Heading>
-              <FeeTiersContainer>
-                <Tier
-                  style={getFeeTierStyle("100")}
-                  onClick={() => {
-                    if (!isSubmitLoading) {
-                      const tier = getFeeTier("100");
-                      if (tier) {
-                        setSelectedPool(tier);
-                        setQueryParam("feeTier", tier.feeTier);
-                      }
-                    }
-                  }}
-                >
-                  <h4 style={!getFeeTier("100") ? { color: "#999" } : {}}>
-                    0.01%
-                  </h4>
-                  <span>Best for very stable pairs.</span>
-                  <div>{getFeeTierPercentage("100")}</div>
-                </Tier>
-                <Tier
-                  style={getFeeTierStyle("500")}
-                  onClick={() => {
-                    if (!isSubmitLoading) {
-                      const tier = getFeeTier("500");
-                      if (tier) {
-                        setSelectedPool(tier);
-                        setQueryParam("feeTier", tier.feeTier);
-                      }
-                    }
-                  }}
-                >
-                  <h4 style={!getFeeTier("500") ? { color: "#999" } : {}}>
-                    0.05%
-                  </h4>
-                  <span>Best for stable pairs.</span>
-                  <div>{getFeeTierPercentage("500")}</div>
-                </Tier>
-                <Tier
-                  style={getFeeTierStyle("3000")}
-                  onClick={() => {
-                    if (!isSubmitLoading) {
-                      const tier = getFeeTier("3000");
-                      if (tier) {
-                        setSelectedPool(tier);
-                        setQueryParam("feeTier", tier.feeTier);
-                      }
-                    }
-                  }}
-                >
-                  <h4 style={!getFeeTier("3000") ? { color: "#999" } : {}}>
-                    0.3%
-                  </h4>
-                  <span>Best for most pairs.</span>
-                  <div>{getFeeTierPercentage("3000")}</div>
-                </Tier>
-                <Tier
-                  style={getFeeTierStyle("10000")}
-                  onClick={() => {
-                    if (!isSubmitLoading) {
-                      const tier = getFeeTier("10000");
-                      if (tier) {
-                        setSelectedPool(tier);
-                        setQueryParam("feeTier", tier.feeTier);
-                      }
-                    }
-                  }}
-                >
-                  <h4 style={!getFeeTier("10000") ? { color: "#999" } : {}}>
-                    1%
-                  </h4>
-                  <span>Best for exotic pairs.</span>
-                  <div>{getFeeTierPercentage("10000")}</div>
-                </Tier>
-              </FeeTiersContainer>
-
-              <PrimaryBlockButton
-                onClick={handleSubmit}
-                disabled={isFormDisabled}
+            >
+              <FontAwesomeIcon icon={faArrowLeft} />
+            </div>
+            <span>Select Network</span>
+          </GoBack>
+          {NETWORKS.map((network, i) => {
+            return (
+              <NetworkItem
                 style={
-                  isFormDisabled
+                  network.disabled
                     ? {
-                        background: "rgba(255, 255, 255, 0.1)",
                         cursor: "not-allowed",
+                        background: "rgba(255, 255, 255, 0.1)",
+                        opacity: "0.4",
                       }
                     : {}
                 }
+                onClick={() => {
+                  if (!network.disabled) {
+                    setCurrentNetwork(network);
+                    fetchTokens();
+
+                    setSelectedNetwork(network);
+                    setSelectedTokens([null, null]);
+                    setShowSelectNetworkPage(false);
+                    setPools([]);
+
+                    setQueryParam("network", network.id);
+                    deleteQueryParam("token0");
+                    deleteQueryParam("token1");
+                    deleteQueryParam("feeTier");
+                  }
+                }}
+                id={`${network.name}_${i}`}
               >
-                {isSubmitLoading && (
-                  <ReactLoading
-                    type="spin"
-                    color="rgba(34, 114, 229, 1)"
-                    height={18}
-                    width={18}
-                  />
+                <img src={network.logoURI} alt={network.name} />
+                <div>
+                  <h5>
+                    {network.name} {network.isNew && <span>NEW</span>}{" "}
+                    {network.error && <span>{network.error}</span>}
+                  </h5>
+                  <span>{network.desc}</span>
+                </div>
+              </NetworkItem>
+            );
+          })}
+        </>
+      )}
+      {showSelectTokenPage && (
+        <>
+          <GoBack>
+            <div
+              onClick={() => {
+                setShowSelectTokenPage(false);
+                setSelectedTokenIndex(null);
+              }}
+            >
+              <FontAwesomeIcon icon={faArrowLeft} />
+            </div>
+            <span>Select Token</span>
+          </GoBack>
+          <SearchTokenPage
+            refetchTokens={() => {
+              fetchTokens();
+            }}
+            selectToken={selectToken}
+            tokens={appContext.state.tokenList}
+          />
+        </>
+      )}
+      {!showSelectTokenPage && !showSelectNetworkPage && (
+        <>
+          <Logo>
+            <span>🦄</span> UniswapCalculator
+            {appContext.state.token0 && !isSubmitLoading && (
+              <div
+                onClick={() =>
+                  modalContext.dispatch({
+                    type: ModalActionType.SET_SELECT_PAIR_MODAL_STATE,
+                    payload: false,
+                  })
+                }
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </div>
+            )}
+          </Logo>
+          <Container>
+            <Heading>Select Network</Heading>
+            <SelectNetworkContainer>
+              <TokenSelect
+                onClick={() => {
+                  if (!isSubmitLoading) {
+                    setShowSelectNetworkPage(true);
+                  }
+                }}
+              >
+                {!selectedNetwork && <span>Select a network</span>}
+                {selectedNetwork !== null && (
+                  <span>
+                    <img
+                      src={selectedNetwork.logoURI}
+                      alt={selectedNetwork.name}
+                    />
+                    {selectedNetwork.name}
+                  </span>
                 )}
-                {!isSubmitLoading && <span>Calculate</span>}
-              </PrimaryBlockButton>
-            </Container>
-          </>
-        )}
-      </Modal>
+                <span>
+                  <FontAwesomeIcon icon={faChevronDown}></FontAwesomeIcon>
+                </span>
+              </TokenSelect>
+            </SelectNetworkContainer>
+
+            <Heading>Select Pair</Heading>
+            <SelectPairContainer>
+              <TokenSelect
+                onClick={() => {
+                  if (!isSubmitLoading) {
+                    setSelectedPool(null);
+                    deleteQueryParam("feeTier");
+                    setShowSelectTokenPage(true);
+                    setSelectedTokenIndex(0);
+                  }
+                }}
+              >
+                {!selectedTokens[0] && <span>Select a token</span>}
+                {selectedTokens[0] && (
+                  <span>
+                    <img
+                      src={selectedTokens[0].logoURI}
+                      alt={selectedTokens[0].name}
+                    />
+                    {selectedTokens[0].symbol}
+                  </span>
+                )}
+                <span>
+                  <FontAwesomeIcon icon={faChevronDown}></FontAwesomeIcon>
+                </span>
+              </TokenSelect>
+              <TokenSelect
+                onClick={() => {
+                  if (!isSubmitLoading) {
+                    setSelectedPool(null);
+                    deleteQueryParam("feeTier");
+                    setShowSelectTokenPage(true);
+                    setSelectedTokenIndex(1);
+                  }
+                }}
+              >
+                {!selectedTokens[1] && <span>Select a token</span>}
+                {selectedTokens[1] && (
+                  <span>
+                    <img
+                      src={selectedTokens[1].logoURI}
+                      alt={selectedTokens[1].name}
+                    />
+                    {selectedTokens[1].symbol}
+                  </span>
+                )}
+                <span>
+                  <FontAwesomeIcon icon={faChevronDown}></FontAwesomeIcon>
+                </span>
+              </TokenSelect>
+            </SelectPairContainer>
+
+            <Heading>Select Fee Tier</Heading>
+            <FeeTiersContainer>
+              <Tier
+                style={getFeeTierStyle("100")}
+                onClick={() => {
+                  if (!isSubmitLoading) {
+                    const tier = getFeeTier("100");
+                    if (tier) {
+                      setSelectedPool(tier);
+                      setQueryParam("feeTier", tier.feeTier);
+                    }
+                  }
+                }}
+              >
+                <h4 style={!getFeeTier("100") ? { color: "#999" } : {}}>
+                  0.01%
+                </h4>
+                <span>Best for very stable pairs.</span>
+                <div>{getFeeTierPercentage("100")}</div>
+              </Tier>
+              <Tier
+                style={getFeeTierStyle("500")}
+                onClick={() => {
+                  if (!isSubmitLoading) {
+                    const tier = getFeeTier("500");
+                    if (tier) {
+                      setSelectedPool(tier);
+                      setQueryParam("feeTier", tier.feeTier);
+                    }
+                  }
+                }}
+              >
+                <h4 style={!getFeeTier("500") ? { color: "#999" } : {}}>
+                  0.05%
+                </h4>
+                <span>Best for stable pairs.</span>
+                <div>{getFeeTierPercentage("500")}</div>
+              </Tier>
+              <Tier
+                style={getFeeTierStyle("3000")}
+                onClick={() => {
+                  if (!isSubmitLoading) {
+                    const tier = getFeeTier("3000");
+                    if (tier) {
+                      setSelectedPool(tier);
+                      setQueryParam("feeTier", tier.feeTier);
+                    }
+                  }
+                }}
+              >
+                <h4 style={!getFeeTier("3000") ? { color: "#999" } : {}}>
+                  0.3%
+                </h4>
+                <span>Best for most pairs.</span>
+                <div>{getFeeTierPercentage("3000")}</div>
+              </Tier>
+              <Tier
+                style={getFeeTierStyle("10000")}
+                onClick={() => {
+                  if (!isSubmitLoading) {
+                    const tier = getFeeTier("10000");
+                    if (tier) {
+                      setSelectedPool(tier);
+                      setQueryParam("feeTier", tier.feeTier);
+                    }
+                  }
+                }}
+              >
+                <h4 style={!getFeeTier("10000") ? { color: "#999" } : {}}>
+                  1%
+                </h4>
+                <span>Best for exotic pairs.</span>
+                <div>{getFeeTierPercentage("10000")}</div>
+              </Tier>
+            </FeeTiersContainer>
+
+            <PrimaryBlockButton
+              onClick={handleSubmit}
+              disabled={isFormDisabled}
+              style={
+                isFormDisabled
+                  ? {
+                      background: "rgba(255, 255, 255, 0.1)",
+                      cursor: "not-allowed",
+                    }
+                  : {}
+              }
+            >
+              {isSubmitLoading && (
+                <ReactLoading
+                  type="spin"
+                  color="rgba(34, 114, 229, 1)"
+                  height={18}
+                  width={18}
+                />
+              )}
+              {!isSubmitLoading && <span>Calculate</span>}
+            </PrimaryBlockButton>
+          </Container>
+        </>
+      )}
     </>
+  );
+};
+
+const SelectPairModal = () => {
+  const modalContext = useModalContext();
+
+  return (
+    <Modal
+      style={ModalStyle}
+      isOpen={modalContext.state.isSelectPairModalOpen}
+      contentLabel="Select Pair Modal"
+      ariaHideApp={false}
+    >
+      <SelectPair />
+    </Modal>
   );
 };
 

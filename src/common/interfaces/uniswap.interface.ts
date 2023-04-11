@@ -8,6 +8,11 @@ export interface Network {
   isNew?: boolean;
   error?: string;
   subgraphEndpoint: string;
+
+  // for pool overview
+  totalValueLockedUSD_gte: number;
+  volumeUSD_gte: number;
+  disabledTopPositions?: boolean;
 }
 
 export interface Tick {
@@ -17,6 +22,9 @@ export interface Tick {
   price1: string;
 }
 
+interface TokenDayData {
+  priceUSD: string;
+}
 export interface Token {
   id: string;
   name: string;
@@ -24,8 +32,21 @@ export interface Token {
   volumeUSD: string;
   logoURI: string;
   decimals: string;
+
+  // For pool overview
+  tokenDayData: TokenDayData[];
+  totalValueLockedUSD: string;
+  poolCount: number;
 }
 
+export interface PoolDayData {
+  date: number;
+  volumeUSD: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+}
 export interface Pool {
   id: string;
   feeTier: string;
@@ -36,6 +57,12 @@ export interface Pool {
   token1Price: string;
   feeGrowthGlobal0X128: string;
   feeGrowthGlobal1X128: string;
+
+  // For pool overview
+  token0: Token;
+  token1: Token;
+  totalValueLockedUSD: string;
+  poolDayData: PoolDayData[];
 }
 
 export interface Position {

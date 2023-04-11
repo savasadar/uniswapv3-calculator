@@ -1,27 +1,32 @@
 import React from "react";
 import styled from "styled-components";
-import { Br } from "../common/components/atomic";
+import { Br, H2, Heading } from "../common/components/atomic";
 import CorrelationChart from "../containers/CorrelationChart";
 import Footer from "../containers/Footer";
 import EstimatedFees from "../containers/EstimatedFees";
 import Header from "../containers/Header";
 import Navbar from "../containers/navbar/Navbar";
 import LiquidityPositionChart from "../containers/LiquidityPositionChart";
-import SelectPairModal from "../containers/select-pair/SelectPairModal";
+import SelectPairModal, {
+  SelectPair,
+} from "../containers/select-pair/SelectPairModal";
 import Setting from "../containers/setting/Setting";
 import { ScreenWidth } from "../utils/styled";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { FeedbackButton } from "../common/components/atomic";
 import { useAppContext } from "../context/app/appContext";
-import { faBug } from "@fortawesome/free-solid-svg-icons";
+import {
+  faArrowDown,
+  faArrowRight,
+  faBug,
+  faExternalLinkAlt,
+} from "@fortawesome/free-solid-svg-icons";
 import { getCurrentNetwork } from "../common/network";
 import ImpermanentLossModal from "../containers/ImpermanentLossModal";
-import { Script } from "gatsby";
 import CreatePositionModal from "../containers/CreatePositionModal";
 import TopPosition from "../containers/TopPosition";
-// import { useModalContext } from "./context/modal/modalContext";
-// import AnnoucementModal from "./containers/AnnoucementModal";
-// import { ModalActionType } from "./context/modal/modalReducer";
+import { Link } from "gatsby";
+import { SEO } from "../common/components/Head";
 
 const BodyContainer = styled.div`
   max-width: 900px;
@@ -44,98 +49,112 @@ const ContentContainer = styled.div`
     grid-gap: 15px;
   }
 `;
+const LandingContainer = styled.div`
+  max-width: 750px;
+  margin: auto;
+  padding-top: 80px;
 
-export function Head() {
-  return (
-    <>
-      <title>Uniswap V3 Fee Calculator - Uniswap.fish</title>
-      <meta charSet="utf-8" />
-      <link
-        rel="apple-touch-icon"
-        sizes="180x180"
-        href="/apple-touch-icon.png"
-      />
-      <link
-        rel="icon"
-        type="image/png"
-        sizes="32x32"
-        href="/favicon-32x32.png"
-      />
-      <link
-        rel="icon"
-        type="image/png"
-        sizes="16x16"
-        href="/favicon-16x16.png"
-      />
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  grid-gap: 25px;
+  margin-top: 25px;
 
-      <meta name="viewport" content="width=device-width, initial-scale=1" />
-      <meta name="theme-color" content="#000000" />
-      <link rel="manifest" href="/manifest.json" />
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Gowun+Batang&family=Noto+Sans+JP:wght@300;400;500;700&display=swap"
-        rel="stylesheet"
-      />
-      <meta
-        name="description"
-        content="Calculate your Uniswap v3 positions fee returns, APY, APR, ROI, yields, and impermanent loss based on how much pool liquidity you provide."
-      />
-      <meta name="author" content="Chun Rapeepat" />
-      <meta property="og:type" content="website" />
-      <meta
-        property="og:title"
-        content="Uniswap V3 Fee Calculator - Uniswap.fish"
-      />
-      <meta
-        property="og:description"
-        content="Calculate your Uniswap v3 positions fee returns, APY, APR, ROI, yields, and impermanent loss based on how much pool liquidity you provide."
-      />
-      <meta property="og:url" content="https://uniswap.fish" />
-      <meta property="og:image" content="https://uniswap.fish/ogimage.jpeg" />
+  & > .select-pair {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    position: relative;
+  }
 
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:site" content="@uniswapdotfish" />
-      <meta
-        name="twitter:title"
-        content="Uniswap V3 Fee Calculator - Uniswap.fish"
-      />
-      <meta
-        name="twitter:description"
-        content="Calculate your Uniswap v3 positions fee returns, APY, APR, ROI, yields, and impermanent loss based on how much pool liquidity you provide."
-      />
-      <meta name="twitter:image" content="https://uniswap.fish/ogimage.jpeg" />
-      <Script>
-        {`var ffWidgetId = "bbf56663-84dc-4b55-bf9c-333b5b4c2720";
-    var ffWidgetScript = document.createElement("script");
-    ffWidgetScript.type = "text/javascript";
-    ffWidgetScript.src = "https://freddyfeedback.com/widget/freddyfeedback.js";
-    document.head.appendChild(ffWidgetScript);`}
-      </Script>
-    </>
-  );
-}
+  @media only screen and (max-width: 800px) {
+    margin: auto 15px;
+    padding-top: 85px;
+  }
+  @media only screen and (max-width: 720px) {
+    grid-template-columns: 1fr;
+
+    & > .select-pair {
+      width: 350px;
+      margin: auto auto;
+    }
+  }
+`;
+const Landing = styled.div`
+  & p {
+    color: #bbb;
+  }
+
+  & .uniswap-foundation {
+    display: flex;
+    align-items: center;
+    color: white;
+    text-decoration: none;
+    margin-top: 20px;
+    font-size: 0.875rem;
+
+    & img {
+      height: 50px;
+      margin-right: 12px;
+      transform: translateY(2px);
+    }
+  }
+
+  & .top-pools {
+    display: block;
+    color: #bbb;
+    cursor: pointer;
+    font-size: 0.875rem;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.175);
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    text-decoration: none;
+    transition: 0.3s;
+    margin-top: 18px;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    & > div:nth-child(1) {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+  }
+  & .calculator {
+    color: #bbb;
+    font-size: 0.875rem;
+    padding: 16px;
+
+    & svg {
+      margin-left: 5px;
+    }
+
+    & .down {
+      display: none;
+    }
+  }
+
+  @media only screen and (max-width: 720px) {
+    & .uniswap-foundation {
+      display: none;
+    }
+    & .calculator .right {
+      display: none;
+    }
+    & .calculator .down {
+      display: inline;
+    }
+  }
+`;
 
 function App() {
   const { state } = useAppContext();
-  // const { state, dispatch } = useModalContext();
-
-  // useEffect(() => {
-  //   if (localStorage.getItem("metamask-phishing-detection") === "OK") return;
-
-  //   dispatch({
-  //     type: ModalActionType.SET_ANNOUCEMENT_MODAL_STATE,
-  //     payload: true,
-  //   });
-  // }, []);
 
   return (
     <>
       <SelectPairModal />
       <ImpermanentLossModal />
       <CreatePositionModal />
-      {/* <AnnoucementModal /> */}
-      {/* <DonateModal /> */}
 
       <FeedbackButton
         onClick={() => {
@@ -163,28 +182,95 @@ function App() {
       </FeedbackButton>
 
       <Navbar />
-      <BodyContainer>
-        <Header />
-        <ContentContainer>
-          <div>
-            <EstimatedFees />
-            <Br />
-            <Setting />
-          </div>
-          <div>
-            <LiquidityPositionChart />
-            <Br />
-            <CorrelationChart />
-          </div>
-        </ContentContainer>
 
-        <Br />
-        <TopPosition />
+      {!state.pool && (
+        <LandingContainer>
+          <Landing>
+            <H2>Welcome to Uniswap.fish</H2>
+            <p>
+              Uniswap.fish is an all-in-one workspace for Uniswap liquidity
+              providers — calculate, discover, analyze, manage & track
+              positions, and more.
+            </p>
 
-        <Footer />
-      </BodyContainer>
+            <div>
+              <Heading style={{ marginTop: 20 }}>How do I get started?</Heading>
+              <Link className="top-pools" to="/pools">
+                <div>
+                  Top Pools{" "}
+                  <FontAwesomeIcon
+                    style={{ marginLeft: 5 }}
+                    icon={faExternalLinkAlt}
+                  />
+                </div>
+                <div>Explore top pools with Pool Overview feature</div>
+              </Link>
+              <div className="calculator">
+                If you already have the pool in mind, select the pool on the
+                Uniswap Calculator
+                <span className="right">
+                  <FontAwesomeIcon icon={faArrowRight} />
+                </span>
+                <span className="down">
+                  <FontAwesomeIcon icon={faArrowDown} />
+                </span>
+              </div>
+            </div>
+
+            <a
+              className="uniswap-foundation"
+              target="_blank"
+              href="https://twitter.com/UniswapFND"
+            >
+              <img src="/uniswap-foundation.png" />
+              <span>
+                Sponsored by
+                <br />
+                Uniswap Foundation
+              </span>
+            </a>
+          </Landing>
+          <div className="select-pair">
+            <SelectPair fetchFromUrlParams={true} />
+          </div>
+        </LandingContainer>
+      )}
+
+      {state.pool && (
+        <BodyContainer>
+          <Header />
+          <ContentContainer>
+            <div>
+              <EstimatedFees />
+              <Br />
+              <Setting />
+            </div>
+            <div>
+              <LiquidityPositionChart />
+              <Br />
+              <CorrelationChart />
+            </div>
+          </ContentContainer>
+
+          {!state.network.disabledTopPositions && (
+            <>
+              <Br />
+              <TopPosition />
+            </>
+          )}
+        </BodyContainer>
+      )}
+
+      <Footer />
     </>
   );
 }
 
 export default App;
+export const Head = () => {
+  const title = "Uniswap V3 Fee Calculator - Uniswap.fish";
+  const description =
+    "Calculate your Uniswap v3 positions fee returns, APY, APR, ROI, yields, and impermanent loss based on how much pool liquidity you provide.";
+
+  return <SEO title={title} description={description} />;
+};

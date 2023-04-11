@@ -17,7 +17,7 @@ import { faExternalLinkAlt } from "@fortawesome/free-solid-svg-icons";
 import { getAge, getReadableDateTime } from "../utils/datetime";
 import { getPoolPositions } from "../repos/uniswap";
 import { useAppContext } from "../context/app/appContext";
-import { Pool, Position } from "../common/interfaces/uniswap.interface";
+import { Position } from "../common/interfaces/uniswap.interface";
 import {
   calculatePositionFees,
   getPriceFromTick,
@@ -28,7 +28,7 @@ import {
   processPriceChartData,
   round,
 } from "../utils/math";
-import { formatNumberToUSD } from "../utils/format";
+import { formatDollarAmount } from "../utils/format";
 import { AppActionType } from "../context/app/appReducer";
 import { Position as V3Position, Pool as V3Pool } from "@uniswap/v3-sdk";
 import { Token as V3Token } from "@uniswap/sdk-core";
@@ -491,7 +491,7 @@ const TopPosition = () => {
               </div>
             }
           >
-            ${formatNumberToUSD(round(liquidity, 2))}
+            {formatDollarAmount(round(liquidity, 2))}
           </Popover>
         </div>
       ),
@@ -976,23 +976,25 @@ const TopPosition = () => {
         assets of at least $500 and being more than one hour old.
       </div>
 
-      <ConfigProvider
-        theme={{
-          algorithm: theme.darkAlgorithm,
-          token: {
-            borderRadius: 6,
-            colorBgBase: "#0d0d0d",
-          },
-        }}
-      >
-        <AntdTable
-          columns={columns}
-          dataSource={positions}
-          scroll={{ x: 1000 }}
-          size="middle"
-          loading={isLoading}
-        />
-      </ConfigProvider>
+      <div style={{ overflow: "hidden", borderRadius: "6px" }}>
+        <ConfigProvider
+          theme={{
+            algorithm: theme.darkAlgorithm,
+            token: {
+              borderRadius: 6,
+              colorBgBase: "#0d0d0d",
+            },
+          }}
+        >
+          <AntdTable
+            columns={columns}
+            dataSource={positions}
+            scroll={{ x: 1000 }}
+            size="middle"
+            loading={isLoading}
+          />
+        </ConfigProvider>
+      </div>
     </Container>
   );
 };
